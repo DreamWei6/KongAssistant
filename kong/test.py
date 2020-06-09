@@ -40,9 +40,14 @@ def audioRecorderCallback(fname):
     pixel_ring.trace()
   except sr.UnknownValueError:
     print("Google Speech Recognition could not understand audio")
+    pixel_ring.change_pattern(0)
     wordToSound('我聽不懂')
+    pixel_ring.trace()
   except sr.RequestError as e:
+    pixel_ring.change_pattern(0)
     print("Could not request results from Google Speech Recognition service; {0}".format(e))
+    wordToSound('我出問題了')
+    pixel_ring.trace()
 
   os.remove(fname)
 
