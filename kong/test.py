@@ -3,8 +3,6 @@ import sys
 import signal
 import speech_recognition as sr
 import os
-#from gtts import gTTS
-#from pygame import mixer
 from usb_pixel_ring_v2 import PixelRing
 import usb.core
 import usb.util
@@ -25,7 +23,7 @@ if dev:
   pixel_ring = PixelRing(dev)
   pixel_ring.trace()
 
-ckip_url = 'https://ckip.iis.sinica.edu.tw/api/corenlp/?ner'
+ckip_url = 'https://ckip.iis.sinica.edu.tw/api/corenlp/?ner&ws'
 header = {
   'Content-Type': 'application/json; charset=utf8'
 }
@@ -96,21 +94,6 @@ def interrupt_callback():
   global interrupted
   return interrupted
 
-'''
-def wordToSound(text):
-  file_name = 'w2s.mp3'
-  tts = gTTS(text, lang='zh-TW')
-  tts.save(file_name)
-
-  mixer.init()
-  mixer.music.load(file_name)
-  mixer.music.play()
-  while mixer.music.get_busy() == True:
-    continue
-  mixer.music.stop()
-  mixer.quit()
-'''
-
 def wordToSound(text):
   engine = pyttsx3.init()
   engine.setProperty('rate', 200)
@@ -122,34 +105,32 @@ def wordToSound(text):
 def ckip(text):
   payload['text'] = text
   r = requests.post(ckip_url, data=json.dumps(payload), headers = header)
-  #print(f"Word Break Complite \n{r.json()['ner'][0]}")
-  return r.json()['ner'][0]
+  #print(f"Word Break Complite \n{r.json()['ner'][0]}\n{r.json()['ws'][0]}")
+  return r.json()
 
 def check_skill(response):
-  ner, text = parse(response)
-  #print(f"Check \nNer : {ner}\nText : {text}\n")
+  ner, text, pos, word = parse(response)
+  #print(f"Check \nNer : {ner}\nText : {text}\nPos : {pos}\nWord : {word}\n")
   if 'GPE' in ner and ner.count('GPE') == 1:
-    for i in range(len(ner)):
-      if ner[i] == None:
-        if text[i].find('天氣') != -1:
-          tmp = {'skill': 'weather'}
-          print(f"{'Skill': <15} : {tmp['skill']: >12}")
-          tmp['location'] = text[ner.index('GPE')]
-          lengh = 12 - len(tmp['location'])
-          print(f"{'Location(zh)': <15} : {tmp['location']: >{lengh}}")
-          location_en = to_english(tmp['location'])
-          print(f"{'Location(en)': <15} : {location_en: >12}")
-          weather = get_weather(location_en)
-          if weather == None:
-            print("API Request Failed")
-            return None
-          else:
-            tmp['temp']   = weather[0]
-            tmp['status'] = weather[1]
-            print(f"{'Temp': <15} : {tmp['temp']: >12}")
-            length = 12 - len(tmp['status'])
-            print(f"{'Status': <15} : {tmp['status']: >{length}}")
-            return tmp
+    if '天氣' in word:
+      tmp = {'skill': 'weather'}
+      print(f"{'Skill': <15} : {tmp['skill']: >12}")
+      tmp['location'] = text[ner.index('GPE')]
+      lengh = 12 - len(tmp['location'])
+      print(f"{'Location(zh)': <15} : {tmp['location']: >{lengh}}")
+      location_en = to_english(tmp['location'])
+      print(f"{'Location(en)': <15} : {location_en: >12}")
+      weather = get_weather(location_en)
+      if weather == None:
+        print("API Request Failed")
+        return None
+      else:
+        tmp['temp']   = weather[0]
+        tmp['status'] = weather[1]
+        print(f"{'Temp': <15} : {tmp['temp']: >12}")
+        length = 12 - len(tmp['status'])
+        print(f"{'Status': <15} : {tmp['status']: >{length}}")
+        return tmp
     return None
   else:
     return None
@@ -170,13 +151,18 @@ def get_weather(location):
   return [int(temp['temp']), weather_status[status]]
 
 def parse(res):
-  ner = []
+  ner  = []
   text = []
-  for r in res:
+  pos  = []
+  word = []
+  for r in res['ner'][0]:
     ner.append(r['ner'])
     text.append(r['text'])
-  #print(f"Parse Complite\nNer : {ner}\nText : {text}\n")
-  return ner, text
+  for r in res['ws'][0]:
+    pos.append(r['pos'])
+    word.append(r['word'])
+  #print(f"Parse Complite\nNer : {ner}\nText : {text}\nPos : {pos}\nWord : {word}")
+  return ner, text, pos, word
 
 # main
 def main():
